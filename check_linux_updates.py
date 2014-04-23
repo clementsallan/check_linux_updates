@@ -68,7 +68,8 @@ def do_check_updates():
         else:
             reboot_required = '?'
        
-        _print_update_line(env.host, updates, sec_updates, reboot_required)
+        if updates or reboot_required:
+            _print_update_line(env.host, updates, sec_updates, reboot_required)
 
 
 def main():
