@@ -11,7 +11,8 @@
  * No capability to select authentication scheme at this point.
      * You will need to enter a password for each host
        when password-less sudo is not configured.
- * Not tested on venv.
+ * Private key handling is very immature at this point.
+ * Not tested with venv or any other nice mechanism.
 
 # Preparation
 

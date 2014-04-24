@@ -45,9 +45,11 @@ def _print_update_line(host, updates, sec_updates, reboot_required):
 
 def check_debian_updates():
     quiet = not env.args.verbose
-    if not _is_host_up(env.host, int(env.port)):
-        warn('Host {} on port {} is down.'.format(env.host, env.port))
-        return
+    if env.args.refresh:
+        result = sudo('apt-get update', warn_only=True, quiet=quiet)
+        if result.failed:
+            error('{}: apt-get update failed.'.format(env.host))
+            return
 
     # Ubuntu or Debian with additional apt-check
     if not exists('/usr/lib/update-notifier/apt-check'):
@@ -121,16 +123,23 @@ def check_centos_updates():
 
 
 def upgrade_debian():
-    quiet = not env.args.verbose
+    # Show updates by default.
+    quiet = env.args.quiet
     sudo('apt-get -y dist-upgrade', warn_only=True, quiet=quiet)
 
+
 def upgrade_centos():
-    quiet = not env.args.verbose
+    # Show updates by default.
+    quiet = env.args.quiet
     sudo('yum -y upgrade', warn_only=True, quiet=quiet)
 
 
 def do_check_updates():
     quiet = not env.args.verbose
+    if not _is_host_up(env.host, int(env.port)):
+        warn('Host {} on port {} is down.'.format(env.host, env.port))
+        return
+
     result = run('command -v apt-get >& /dev/null', quiet=True)
     is_debian = result.succeeded
     
@@ -152,6 +161,8 @@ def do_check_updates():
         if (upgrade_done or reboot_required) and env.args.upgrade_restart:
             puts('Rebooting {}'.format(env.host))
             sudo('reboot', warn_only=True, quiet=quiet)
+    if env.args.verbose:
+        puts('Finished')
 
 
 def do_sanity_check():
@@ -163,7 +174,10 @@ def do_sanity_check():
 def main():
     parser = argparse.ArgumentParser(
         description=u'Checks if remote hosts need update or not.')
-    parser.add_argument('-c', '--check',
+    parser.add_argument('--refresh',
+                        help=(u'Run apt-get update on Debian/Ubuntu.'),
+                        action='store_true')
+    parser.add_argument('--sanity-check',
                         help=(u'Executes sanity check toward each host'
                               u' serially (not in parallel).'
                               u' If some hosts show prompt in the check phase,'
@@ -204,6 +218,7 @@ def main():
     output_groups = ()
     if args.verbose:
         output_groups = ()
+        args.quiet = False
     elif args.quiet:
         output_groups = ('everything', 'status')
     else:
@@ -261,7 +276,7 @@ def main():
         # Remember our args.
         env.args = args
 
-        if args.check:
+        if args.sanity_check:
             puts('Start sanity check')
             execute(do_sanity_check, hosts=hosts)
         execute(do_check_updates, hosts=hosts)
