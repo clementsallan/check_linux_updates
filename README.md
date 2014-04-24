@@ -63,9 +63,9 @@ Here's sample output:
     ..
     
     > check-linux-updates.py list_groups
-    example: example.com, test.example.com, test2.example.com
-    mowanet: mowa-net.jp, test.mowa-net.jp, centos.mowa-net.jp
-    centos : centos.mowa-net.jp, test2.example.com
+    example : example.com, test.example.com, test2.example.com
+    mowa-net: mowa-net.jp, test.mowa-net.jp, centos.mowa-net.jp
+    centos  : centos.mowa-net.jp, test2.example.com
     
     > check-linux-updates.py --upgrade-restart mowa-net
     ..
