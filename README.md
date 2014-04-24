@@ -9,8 +9,8 @@
  * "Grouping" capability exists for convenience.
  * Tested with Python 2.7 + Fabric 1.8.3 + Paramiko 1.11.0
  * No capability to select authentication scheme at this point.
-     * You may need to enter password for each host when password-less sudo
-     is not allowed.
+     * You will need to enter a password for each host
+       when password-less sudo is not configured.
  * Not tested on venv.
 
 # Preparation
@@ -52,10 +52,10 @@
 Here's sample output:
 
     > check-linux-updates.py
-    example.com       : updates:   6(6), reboot-required: True
-    test.example.com  : updates:   2(1), reboot-required: False
-    mowa-net.jp       : updates:   5(0), reboot-required: False
-    centos.mowa-net.jp: updates:  14(?), reboot-required: False
+    example.com       :   6(6) (REBOOT-REQUIERD)
+    test.example.com  :   2(1)
+    mowa-net.jp       :   5(0)
+    centos.mowa-net.jp:  14(?)
     
     > check-linux-updates.py --upgrade example.com
     ..
