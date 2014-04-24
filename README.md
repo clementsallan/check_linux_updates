@@ -20,10 +20,10 @@
  * Needs "update-notifier-common" is needed on target Debian machines.
      * Already installed on some Ubuntu machines.
  * Prepare hosts.py that contains get_hosts() and get_host_groups() methods
- (See below)
+   (See below)
      * get_hosts() should return all the hosts you manage.
      * get_host_groups() should return a dictionary mapping group names to
-     each host. All hosts here should be in get_hosts().
+       each host. All hosts here should be in get_hosts().
      * Multiple groups can contain same host names.
 
 # Example
