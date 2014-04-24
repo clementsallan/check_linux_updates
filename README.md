@@ -1,24 +1,30 @@
 # What is this?
 
- * Checks updates on Linux boxes.
+ * Checks updates on Linux machiens (that is expected to run as a server).
+ * Using Python Fabric via API.
+     * "fab" command (Fabric's command line interface) is not used.
  * Has option for upgrading/rebooting each machine on demand.
  * Can parallelize or serialize the execution.
  * Supports CentOS and Ubuntu/Debian.
- * No capability to select authenticatio scheme at this point
+ * "Grouping" capability exists for convenience.
+ * Tested with Python 2.7 + Fabric 1.8.3 + Paramiko 1.11.0
+ * No capability to select authentication scheme at this point.
      * You may need to enter password for each host when password-less sudo
      is not allowed.
- * "Grouping" capability exists.
+ * Not tested on venv.
 
 # Preparation
 
-* Needs Python/Fabric on your client machine (that runs this command)
-* Needs "update-notifier-common" is needed on target Debian machines.
-    * Already installed on some Ubuntu machines.
-* Prepare hosts.py that contains get_hosts() and get_host_groups() methods
-    * get_hosts() should return all the hosts you manage.
-    * get_host_groups() should return a dictionary mapping group names to
-    each host. All hosts here should be in get_hosts().
-    * Multiple groups can contain same host names.
+ * Needs Python/Fabric on your client machine (that runs this command)
+     * pip will be your friend
+ * Needs "update-notifier-common" is needed on target Debian machines.
+     * Already installed on some Ubuntu machines.
+ * Prepare hosts.py that contains get_hosts() and get_host_groups() methods
+ (See below)
+     * get_hosts() should return all the hosts you manage.
+     * get_host_groups() should return a dictionary mapping group names to
+     each host. All hosts here should be in get_hosts().
+     * Multiple groups can contain same host names.
 
 # Example
 
