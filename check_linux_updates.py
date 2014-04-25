@@ -3,9 +3,11 @@
 from __future__ import print_function
 
 import argparse
+from getpass import getpass
 
-from fabric.contrib.files import exists
 from fabric.api import hide,sudo,run
+from fabric.context_managers import shell_env
+from fabric.contrib.files import exists
 from fabric.tasks import execute
 from fabric.state import env
 from fabric.utils import abort,error,puts,warn
@@ -30,17 +32,22 @@ def _is_host_up(host, port):
         socket.setdefaulttimeout(original_timeout)
 
 
-def _get_update_line(host, updates, sec_updates, reboot_required):
+def _get_update_line(host, updates, sec_updates, reboot_required,
+                     packages=None):
     updates_str = '{}({})'.format(updates, sec_updates)
     ret = ((u'{:<%d}: {:>6}' % env.host_column_size)
            .format(host, updates_str))
     if reboot_required:
         ret += ' (REBOOT-REQUIRED)'
+    if packages:
+        ret += '\n  {}'.format(', '.join(packages))
     return ret
 
 
-def _print_update_line(host, updates, sec_updates, reboot_required):
-    print(_get_update_line(host, updates, sec_updates, reboot_required))
+def _print_update_line(host, updates, sec_updates, reboot_required,
+                       packages=None):
+    print(_get_update_line(host, updates, sec_updates, reboot_required,
+                           packages))
 
 
 def check_debian_updates():
@@ -67,7 +74,27 @@ def check_debian_updates():
                                  str(result.stdout).split(';'))
     reboot_required = exists('/var/run/reboot-required')
     if updates or sec_updates or reboot_required or env.args.verbose:
-        _print_update_line(env.host, updates, sec_updates, reboot_required)
+        if env.args.show_packages:
+            result = sudo('apt-get -s upgrade', warn_only=True, quiet=quiet)
+            if result.succeeded:
+                do_check_next = False
+                packages = None
+                for line in str(result.stdout).split('\n'):
+                    if do_check_next:
+                        packages = line.split()
+                        break
+                    elif 'The following packages will be upgraded' in line:
+                        do_check_next = True
+                        pass
+                    pass
+                if packages:
+                    _print_update_line(env.host, updates, sec_updates,
+                                       reboot_required, packages)
+                else:
+                    warn('No packages found for {}'.format(env.host))
+
+        else:
+            _print_update_line(env.host, updates, sec_updates, reboot_required)
 
     return (updates, sec_updates, reboot_required)
 
@@ -97,10 +124,19 @@ def check_centos_updates():
 
     output = str(result.stdout)
 
+    update_lines = filter(lambda x: x.rstrip().endswith('updates'),
+                          output.split('\n'))
     # Count the number of lines that contain "update" at the end.
-    updates = len(filter(lambda x: x.rstrip().endswith('updates'),
-                         output.split('\n')))
-
+    updates = len(update_lines)
+    if env.args.show_packages:
+        packages = []
+        for update in update_lines:
+            packages.append(update.split()[0]
+                            .rstrip('.x86_64')
+                            .rstrip('.x386')
+                            .rstrip('.noarch'))
+    else:
+        packages = None
 
     # It seems there's no way whether each is for security or not..
     sec_updates = '?'
@@ -117,7 +153,8 @@ def check_centos_updates():
         reboot_required = '?'
    
     if updates or reboot_required or env.args.verbose:
-        _print_update_line(env.host, updates, sec_updates, reboot_required)
+        _print_update_line(env.host, updates, sec_updates, reboot_required,
+                           packages)
 
     return (updates, 0, reboot_required)
 
@@ -211,6 +248,10 @@ def main():
     parser.add_argument('-q', '--quiet',
                         action='store_true',
                         help=u'Suppress unnecessary output.')
+    parser.add_argument('--show-packages',
+                        action='store_true',
+                        help=(u'This will show names of packages'
+                              u' to be upgraded.'))
     parser.add_argument('-v', '--verbose',
                         action='store_true',
                         help=u'Show verbose outputs, including Fabric ones.')
@@ -224,7 +265,7 @@ def main():
     else:
         output_groups = ('running', 'status')
 
-    with hide(*output_groups):
+    with hide(*output_groups), shell_env(LANG='C'):
         if (args.upgrade or args.upgrade_restart) and not args.hosts:
             abort(u'--upgrade/--upgrade-restart toward all hosts not allowed'
                   u' by default.'
@@ -274,8 +315,7 @@ def main():
         env.abort_on_prompts = not args.serial
 
         # Remember our args.
-        env.args = args
-
+        env.args = args            
         if args.sanity_check:
             puts('Start sanity check')
             execute(do_sanity_check, hosts=hosts)
