@@ -3,7 +3,6 @@
 from __future__ import print_function
 
 import argparse
-from getpass import getpass
 
 from fabric.api import hide,sudo,run
 from fabric.context_managers import shell_env
@@ -244,7 +243,8 @@ def main():
                         nargs='*',
                         help=(u'Host names or host groups. If not specified,'
                               u' default hosts configuration will be used.'
-                              u' This may allow "all" "list", "list_groups".'))
+                              u' This may allow "all" "list",'
+                              u' "groups" (= "list_groups").'))
     parser.add_argument('-q', '--quiet',
                         action='store_true',
                         help=u'Suppress unnecessary output.')
@@ -252,6 +252,9 @@ def main():
                         action='store_true',
                         help=(u'This will show names of packages'
                               u' to be upgraded.'))
+    parser.add_argument('-n', '--allow-nonregistered',
+                        action='store_true',
+                        help=u'Allow host names that are not registered')
     parser.add_argument('-v', '--verbose',
                         action='store_true',
                         help=u'Show verbose outputs, including Fabric ones.')
@@ -271,14 +274,33 @@ def main():
                   u' by default.'
                   u' Consider using "all" for host, forcing what you want.')
 
+        # If there are one ore more "host" arguments are available,
+        # Try the following;
+        # 1. If the *first* argument is actually a special sequence like "all",
+        #    "list", etc., then run a special sequence and exit the app.
+        #    Other arguments will be ignored then even if they exist.
+        # 2. For each "host" argument, do the following;
+        #   2.1 if it looks a host group,
+        #       mark all hosts in the group as check targets.
+        #   2.2 if it looks registered host name,
+        #       mark it as a check target.
+        #   2.3 if it looks part of a *single* registered host name,
+        #       mark it as a target.
+        #   2.4 if there are multiple candidates for the argument,
+        #       show an error and exit the app without actual check.
+        #   2.5 if "-n" option is set, mark the host name as a target silently.
         if args.hosts:
             groups = get_host_groups()
             if len(args.hosts) == 1 and args.hosts[0] == 'all':
                 hosts = get_hosts()
+                args.hosts = []
             elif len(args.hosts) == 1 and args.hosts[0] == 'list':
                 print('\n'.join(get_hosts()))
                 return
-            elif len(args.hosts) == 1 and args.hosts[0] == 'list_groups':
+            elif (len(args.hosts) == 1
+                  and (args.hosts[0] == 'list-groups'
+                       or args.hosts[0] == 'list_groups'
+                       or args.hosts[0] == 'groups')):
                 column_size = reduce(lambda x,y: max(x, len(y)),
                                      groups.keys(), 0)
                 for key, value in groups.iteritems():
@@ -290,8 +312,19 @@ def main():
             for host in args.hosts:
                 if groups.has_key(host):
                     hosts.extend(groups[host])
-                else:
+                elif host in get_hosts():
                     hosts.append(host)
+                else:
+                    filtered = filter(lambda x: host in x, get_hosts())
+                    if len(filtered) == 1:
+                        hosts.append(filtered[0])
+                    elif len(filtered) > 1:
+                        abort('Multiple candidates for "{}"'.format(host))
+                    elif args.allow_nonregistered:
+                        hosts.append(host)
+                    else:
+                        abort('No idea how to handle "{}"'.format(host))
+                
         else:
             hosts = get_hosts()
         if not hosts:
