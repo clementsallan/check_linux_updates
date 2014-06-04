@@ -6,11 +6,11 @@ check_debian_update_local.py
 
 Locally runs "/usr/lib/update-notifier/apt-check" command and 
 shows (via stdout) the number of updates on Debian/Ubuntu.
-The command itself is part of update-notifier-common package,
+The command itself is part of update-notifier-common package.
 you may need to prepare it beforehand.
 
-Shows a unusually high number on error.
-This is because Zabbix Agent won't handle negative number.
+Shows an unusually high number on error.
+It is because Zabbix Agent won't handle negative number.
 Typically more than 60000.
 
 If you want to use this with zabbix-agentd, consider UserParameter.

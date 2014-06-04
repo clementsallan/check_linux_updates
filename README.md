@@ -1,4 +1,5 @@
-# What is this?
+# check_linux_updates.py
+## What is this?
 
  * Checks updates on Linux machiens (that is expected to run as a server).
  * Using Python Fabric via API.
@@ -14,7 +15,7 @@
  * Private key handling is very immature at this point.
  * Not tested with venv or any other nice mechanism.
 
-# Preparation
+## Preparation
 
  * Needs Python/Fabric on your client machine (that runs this command)
      * pip will be your friend
@@ -27,7 +28,7 @@
        each host. All hosts here should be in get_hosts().
      * Multiple groups can contain same host names.
 
-# Example
+## Example
 
     (hosts.py)
     
@@ -74,6 +75,37 @@ Here's sample output:
      "mowa-net", rebooting them if needed)
     ..
 
+# check_debian_update_local.py
+
+Locally runs ``/usr/lib/update-notifier/apt-check`` command and 
+shows (via stdout) the number of updates on Debian/Ubuntu.
+The apt-check command itself is not part of this project but
+part of update-notifier-common package.
+You may need to prepare it beforehand.
+
+This tool shows an unusually high number on error.
+It is because Zabbix Agent won't handle negative number and
+there's no other appropriate way to let Zabbix Server know the situation.
+Typically more than 60000 will be shown.
+
+For using with Zabbix, try UserParameter like the following:
+
+    UserParameter=mowa.updates,/var/lib/zabbix/check_debian_update_local.py
+    UserParameter=mowa.secupdates,/var/lib/zabbix/check_debian_update_local.py -s
+    UserParameter=mowa.reboots,/var/lib/zabbix/check_debian_update_local.py -r
+
+Reboot the agent and check if Zabbix Server side can use these
+additional parameters. zabbix_get command will be your friend.
+
+    (on server side)
+    $ zabbix_get -s yourhost.exampl.com -k mowa.reboots
+    1
+
+Note that apt-check command and this Python script may be too slow for
+your servers. Please be careful.
+
+
 # License
 
 Apache2
+
