@@ -13,6 +13,20 @@ Shows a unusually high number on error.
 This is because Zabbix Agent won't handle negative number.
 Typically more than 60000.
 
+If you want to use this with zabbix-agentd, consider UserParameter.
+
+e.g.
+UserParameter=mowa.updates,/var/lib/zabbix/check_debian_update_local.py
+UserParameter=mowa.secupdates,/var/lib/zabbix/check_debian_update_local.py -s
+UserParameter=mowa.reboots,/var/lib/zabbix/check_debian_update_local.py -r
+
+Reboot the agent and check if Zabbix Server side can use these
+additional parameters. zabbix_get command will be your friend.
+
+(on server side)
+$ zabbix_get -s yourhost.exampl.com -k mowa.reboots
+1
+
 Copyright: Daisuke Miyakawa (d.miyakawa (a-t) gmail d-o-t com)
 Licensed under Apache 2 License.
 '''
