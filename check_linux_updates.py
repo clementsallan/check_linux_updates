@@ -1,5 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+
+'''
+Utility that checks if specified Linux (Ubuntu/CentOS) hosts
+need to be updated or not.
+'''
+
 from __future__ import print_function
 
 import argparse
@@ -16,6 +22,9 @@ import socket
 
 # Prepare those function by yourself.
 from hosts import get_hosts, get_host_groups
+
+from utils import query_yes_no
+
 
 # http://stackoverflow.com/questions/1956777/
 def _is_host_up(host, port):
@@ -38,6 +47,8 @@ def _get_update_line(host, updates, sec_updates, reboot_required,
            .format(host, updates_str))
     if reboot_required:
         ret += ' (REBOOT-REQUIRED)'
+    elif reboot_required == None:
+        ret += ' (REBOOT-STATUS-UNKNOWN)'
     if packages:
         ret += '\n  {}'.format(', '.join(packages))
     return ret
@@ -49,7 +60,11 @@ def _print_update_line(host, updates, sec_updates, reboot_required,
                            packages))
 
 
-def check_debian_updates():
+def check_reboot_required_debian():
+    return exists('/var/run/reboot-required')
+
+
+def check_updates_debian():
     quiet = not env.args.verbose
     if env.args.refresh:
         result = sudo('apt-get update', warn_only=True, quiet=quiet)
@@ -71,7 +86,7 @@ def check_debian_updates():
         return None
     (updates, sec_updates) = map(lambda x: int(x),
                                  str(result.stdout).split(';'))
-    reboot_required = exists('/var/run/reboot-required')
+    reboot_required = check_reboot_required_debian()
     if updates or sec_updates or reboot_required or env.args.verbose:
         if env.args.show_packages:
             result = sudo('apt-get -s upgrade', warn_only=True, quiet=quiet)
@@ -98,7 +113,27 @@ def check_debian_updates():
     return (updates, sec_updates, reboot_required)
 
 
-def check_centos_updates():
+def check_reboot_required_centos():
+    '''
+    * True == Reboote Required
+    * False == Reboot not Required
+    * None == unknown
+    '''
+    quiet = not env.args.verbose
+    result_1 = run('rpm -q --last kernel', quiet=quiet)
+    result_2 = run('uname -r', quiet=quiet)
+    if result_1.succeeded and result_2.succeeded:
+        # e.g. "kernel-2.6.32-431.11.2.el6.x86_64"
+        latest_line = str(result_1.stdout).split()[0]
+        # e.g. "2.6.32-431.11.2.el6.x86_64"
+        current = str(result_2.stdout)
+        reboot_required = current not in latest_line
+    else:
+        reboot_required = None
+    return reboot_required
+
+
+def check_updates_centos():
     quiet = not env.args.verbose
     # CentOS
     result = run('command -v yum >& /dev/null', quiet=quiet)
@@ -140,22 +175,32 @@ def check_centos_updates():
     # It seems there's no way whether each is for security or not..
     sec_updates = '?'
 
-    result_1 = run('rpm -q --last kernel', quiet=quiet)
-    result_2 = run('uname -r', quiet=quiet)
-    if result_1.succeeded and result_2.succeeded:
-        # e.g. "kernel-2.6.32-431.11.2.el6.x86_64"
-        latest_line = str(result_1.stdout).split()[0]
-        # e.g. "2.6.32-431.11.2.el6.x86_64"
-        current = str(result_2.stdout)
-        reboot_required = current not in latest_line
-    else:
-        reboot_required = '?'
-   
-    if updates or reboot_required or env.args.verbose:
+    reboot_required = check_reboot_required_centos()
+
+    # Note: reboot_required == None means 'Unknown',
+    # in which case we want to show the line.
+    if (updates or reboot_required or reboot_required == None
+        or env.args.verbose):
         _print_update_line(env.host, updates, sec_updates, reboot_required,
                            packages)
 
     return (updates, 0, reboot_required)
+
+
+def check_updates(is_debian):
+    if is_debian:
+        result = check_updates_debian()
+    else:
+        result = check_updates_centos()
+    return result
+
+
+def check_reboot_required(is_debian):
+    if is_debian:
+        reboot_required = check_reboot_required_debian()
+    else:
+        reboot_required = check_reboot_required_centos()
+    return reboot_required
 
 
 def upgrade_debian():
@@ -178,25 +223,40 @@ def do_check_updates():
 
     result = run('command -v apt-get >& /dev/null', quiet=True)
     is_debian = result.succeeded
-    
-    if is_debian:
-        result = check_debian_updates()
-    else:
-        result = check_centos_updates()
+    result = check_updates(is_debian)
 
     if result:
         upgrade_done = False
         (updates, sec_updates, reboot_required) = result
-        if (updates or sec_updates) and env.args.upgrade:
-            puts('Upgrading {}'.format(env.host))
-            if is_debian:
-                upgrade_debian()
-            else:
-                upgrade_centos()
-            upgrade_done = True
-        if (upgrade_done or reboot_required) and env.args.upgrade_restart:
-            puts('Rebooting {}'.format(env.host))
-            sudo('reboot', warn_only=True, quiet=quiet)
+        if (updates or sec_updates):
+            do_upgrade = False
+            if env.args.auto_upgrade:
+                do_upgrade = True
+            elif env.args.ask_upgrade:
+                do_upgrade = ('yes' == query_yes_no('Upgrade "{}"? '
+                                                    .format(env.host)))
+
+            if do_upgrade:
+                puts('Upgrading {}'.format(env.host))
+                if is_debian:
+                    upgrade_debian()
+                else:
+                    upgrade_centos()
+                # Check reboot status again
+                reboot_required = check_reboot_required(is_debian)
+                upgrade_done = True
+
+        if (upgrade_done or reboot_required):
+            do_reboot = False
+            if env.args.auto_upgrade_restart:
+                do_reboot = True
+            elif reboot_required and env.args.ask_upgrade:
+                do_reboot = ('yes' == query_yes_no('Reboot "{}"? '
+                                                   .format(env.host)))
+            if do_reboot:
+                puts('Rebooting {}'.format(env.host))
+                sudo('reboot', warn_only=True, quiet=quiet)
+
     if env.args.verbose:
         puts('Finished')
 
@@ -221,21 +281,27 @@ def main():
                               u' Might be useful for "debugging" new hosts.'),
                         action='store_true')
     parser.add_argument('-s', '--serial',
-                        help=u'Executes check serially',
+                        help=u'Executes check in serial manner',
                         action='store_true')
-    parser.add_argument('--upgrade',
+    parser.add_argument('--ask-upgrade',
+                        help=(u'Asks if upgrade should be done when'
+                              u' appropriate.'
+                              u' Only effective when --serial (-s) option'
+                              u' is set'),
+                        action='store_true')
+    parser.add_argument('--auto-upgrade',
                         help=(u'Request hosts actually upgrade itself'
                               u' when necessary.'
                               u' Note that this will execute "dist-upgrade"'
                               u' on debian(-like) OSes, not "upgrade.'),
                         action='store_true')
-    parser.add_argument('--upgrade-restart',
+    parser.add_argument('--auto-upgrade-restart',
                         help=(u'Request hosts actually upgrade itself'
-                              u' and restart when update is available.'
-                              u' Note that, with this option, restart'
-                              u' will be executed regardless of the OS\'s'
-                              u' "Reboot-Required" status.'
-                              u' Note that this will execute "dist-upgrade"'
+                              u' and restart when upgrade is finished.'
+                              u' With this option restart'
+                              u' will be executed regardless of necessity'
+                              u' (with/without "Reboot-Required" status).'
+                              u' This will execute "dist-upgrade"'
                               u' on debian(-like) OSes, not "upgrade.'),
                         action='store_true')
     parser.add_argument('hosts', metavar='HOST',
@@ -269,9 +335,10 @@ def main():
         output_groups = ('running', 'status')
 
     with hide(*output_groups), shell_env(LANG='C'):
-        if (args.upgrade or args.upgrade_restart) and not args.hosts:
-            abort(u'--upgrade/--upgrade-restart toward all hosts not allowed'
-                  u' by default.'
+        if ((args.auto_upgrade or args.auto_upgrade_restart)
+            and not args.hosts):
+            abort(u'--auto-upgrade/--auto-upgrade-restart toward all hosts'
+                  u' not allowed by default.'
                   u' Consider using "all" for host, forcing what you want.')
 
         # If there are one ore more "host" arguments are available,
@@ -337,8 +404,8 @@ def main():
         # -> 17 (== len('test.mowa-net.jp'))
         env.host_column_size = reduce(lambda x,y: max(x, len(y)), hosts, 0)
 
-        if args.upgrade_restart:
-            args.upgrade = True
+        if args.auto_upgrade_restart:
+            args.auto_upgrade = True
 
         # On serial execution there's no need to abort on prompts.
         # Also assume serial execution when there's just one host.
@@ -346,6 +413,13 @@ def main():
             args.serial = True
         env.parallel = not args.serial
         env.abort_on_prompts = not args.serial
+
+        if args.ask_upgrade:
+            if not args.serial:
+                abort('--ask-upgrade is useless on parallel mode.')
+            if args.auto_upgrade:
+                abort('--ask-upgrade is useless when auto-upgrade is enabled.')
+
 
         # Remember our args.
         env.args = args            
