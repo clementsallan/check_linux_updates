@@ -90,9 +90,9 @@ Typically more than 60000 will be shown.
 
 For using with Zabbix, try UserParameter like the following:
 
-    UserParameter=mowa.updates,/var/lib/zabbix/check_debian_update_local.py
-    UserParameter=mowa.secupdates,/var/lib/zabbix/check_debian_update_local.py -s
-    UserParameter=mowa.reboots,/var/lib/zabbix/check_debian_update_local.py -r
+    UserParameter=mowa.updates,/var/lib/zabbix/check_debian_update_local.py -q
+    UserParameter=mowa.secupdates,/var/lib/zabbix/check_debian_update_local.py -s -q
+    UserParameter=mowa.reboots,/var/lib/zabbix/check_debian_update_local.py -r -q
 
 Reboot the agent and check if Zabbix Server side can use these
 additional parameters. zabbix_get command will be your friend.

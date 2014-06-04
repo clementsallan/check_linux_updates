@@ -16,9 +16,9 @@ Typically more than 60000.
 If you want to use this with zabbix-agentd, consider UserParameter.
 
 e.g.
-UserParameter=mowa.updates,/var/lib/zabbix/check_debian_update_local.py
-UserParameter=mowa.secupdates,/var/lib/zabbix/check_debian_update_local.py -s
-UserParameter=mowa.reboots,/var/lib/zabbix/check_debian_update_local.py -r
+UserParameter=mowa.updates,/var/lib/zabbix/check_debian_update_local.py -q
+UserParameter=mowa.secupdates,/var/lib/zabbix/check_debian_update_local.py -s -q
+UserParameter=mowa.reboots,/var/lib/zabbix/check_debian_update_local.py -r -q
 
 Reboot the agent and check if Zabbix Server side can use these
 additional parameters. zabbix_get command will be your friend.
@@ -54,11 +54,14 @@ REBOOT_REQUIRED_FILE = '/var/run/reboot-required'
 
 def get_update_count(args):
     if args.reboot_required:
+        # Just check if reboot-required exists or not.
         if os.path.exists(REBOOT_REQUIRED_FILE):
             return 1
         else:
             return 0
 
+    # Start executing apt-file command,
+    # expecting "updates;sec-updates" string.
     p = subprocess.Popen([APT_CHECK_FILE],
                          stderr=subprocess.STDOUT,
                          stdout=subprocess.PIPE)
@@ -67,7 +70,8 @@ def get_update_count(args):
     if (p.returncode > 0):
         logger.error('Return-code: {}'.format(p.returncode))
         logger.error(p.stdout.read())
-        return
+        return ERROR_MISC_ERROR
+
     # '18;2' -> update 18, sec-update 2
     stdout_str = p.stdout.read()
     logger.debug('stdout: {}'.format(stdout_str))
@@ -84,9 +88,11 @@ def main():
     parser.add_argument('--log',
                         action='store',
                         default='INFO',
-                        help=('Set Python log level. e.g. DEBUG, INFO, WARN.'))
+                        help=('Set Python log level. e.g. DEBUG, INFO, WARN'))
     parser.add_argument('-s', '--security-updates',
-                        action='store_true')
+                        action='store_true',
+                        help=('Instead of showing num of updates,'
+                              ' show num of security updates.'))
     parser.add_argument('-r', '--reboot_required',
                         action='store_true',
                         help=('Instead of showing num of updates,'
