@@ -334,7 +334,8 @@ def main():
             and not args.hosts):
             abort(u'--auto-upgrade/--auto-upgrade-restart toward all hosts'
                   u' not allowed by default.'
-                  u' Consider using "all" for host, forcing what you want.')
+                  u' Consider using "all" for host param,'
+                  u' which will do what you want.')
 
         # If there are one ore more "host" arguments are available,
         # Try the following;

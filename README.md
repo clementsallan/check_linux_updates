@@ -18,7 +18,7 @@
      * Tested with Ubuntu 12.04LTS, 14.04LTS, Debian sid, CentOS 6, Fedora 20
  * For local execution only, check ``check_local_updat.py`` instead.
 
-## More details
+## Limitations
 
  * Uses Python Fabric API.
      * "fab" command (Fabric's command line interface) is not used.
@@ -90,6 +90,7 @@
     ..
 
 # check_update_local.py
+## What is this?
 
  * Local check version. No ssh. No auto-upgrade with sudo.
  * Shows the number of (security) updates on Linux systems with yum or apt.
@@ -99,16 +100,18 @@
      * CentOS 6 seems to have 2.6.6 by default. Be careful :-(
  * Tested on Debian wheezy 7.5, Ubuntu 12.04LTS/14.04LTS,
    CentOS 6, Fedora 20 (not on RHEL).
-     * On Debian-like systems, requires "update-notifier-common" package.
-     * On Redhat-like systems, requires appropriate package
-         * "yum-plugin-security" (on Fedora11/CentOS6),
-         * "yum-security" (on older Redhat).
-     * On CentOS 6, you need to install argparse via pip
-         * http://pip.readthedocs.org/en/latest/installing.html
-         * ``pip2.6 install argparse``
-         * Python 2.6 is barely supported.. :-P
+   
+## Limitations
+ * On Debian-like systems, requires "update-notifier-common" package.
+ * On Redhat-like systems, requires appropriate package
+     * "yum-plugin-security" (on Fedora11/CentOS6),
+     * "yum-security" (on older Redhat).
+ * On CentOS 6, you need to install argparse via pip
+     * http://pip.readthedocs.org/en/latest/installing.html
+     * ``pip2.6 install argparse``
+     * Python 2.6 is barely supported.. :-P
 
-# Example output
+## Example output
 
 Example shows the system has 2 updates (including 1 security update),
 requiring system reboot.
