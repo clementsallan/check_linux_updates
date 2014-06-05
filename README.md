@@ -84,13 +84,21 @@ Here's sample output:
 # check_update_local.py
 
  * Shows the number of (security) updates on Linux systems with yum or apt.
- * Tested on Debian, Ubuntu, CentOS, Fedora (not on RHEL).
+ * On error an unusually high positive number ([60001,60100]) will be used.
+     * Assumes the system does not have actual 60000 updates!
+ * Mainly developed with Python2 (2.7), not Python3
+     * CentOS 6 seems to have 2.6.6 by default. Be careful :-(
+ * Tested on Debian wheezy 7.5, Ubuntu 12.04LTS/14.04LTS,
+   CentOS 6, Fedora 20 (not on RHEL).
      * On Debian-like systems, requires "update-notifier-common" package.
      * On Redhat-like systems, requires appropriate package
          * "yum-plugin-security" (on Fedora11/CentOS6),
          * "yum-security" (on older Redhat).
- * On error an unusually high positive number ([60001,60100]) will be used.
-     * Assumes the system does not have actual 60000 updates!
+     * On CentOS 6, you need to install argparse via pip
+         * http://pip.readthedocs.org/en/latest/installing.html
+         * ``pip2.6 install argparse``
+         * Python 2.6 is barely supported.. :-P
+
 
 ## I like Zabbix :-)
 
