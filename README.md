@@ -1,19 +1,25 @@
-# check_linux_updates.py
+# check_updates.py
 ## What is this?
 
- * Checks updates on Linux machiens (that is expected to run as a server).
- * Using Python Fabric via API.
-     * "fab" command (Fabric's command line interface) is not used.
- * Has option for upgrading/rebooting each machine on demand.
+ * Checks updates on remote Linux machines, showing as a list.
+ * Has an option for upgrading/rebooting each machine.
  * Can parallelize or serialize the execution.
- * Supports CentOS and Ubuntu/Debian.
- * "Grouping" capability exists for convenience.
+ * Supports Debian-like and Redhat-like systems.
  * Tested with Python 2.7 + Fabric 1.8.3 + Paramiko 1.11.0
+ * "Host-Grouping" capability exists for convenience.
+     * Useful for batch manipulation for a specific "region".
+ * For local check only, try ``check_local_updat.py`` instead.
+
+## More details 
+
+ * Uses Python Fabric via API.
+     * "fab" command (Fabric's command line interface) is not used.
+ * Private key handling is very immature at this point.
  * No capability to select authentication scheme at this point.
      * You will need to enter a password for each host
        when password-less sudo is not configured.
- * Private key handling is very immature at this point.
- * Not tested with venv or any other nice mechanism.
+ * Not tested with venv or any other nice mechanism available on Python.
+
 
 ## Preparation
 
@@ -77,16 +83,18 @@ Here's sample output:
 
 # check_update_local.py
 
-Shows the number of (security) updates on Linux systems with yum or apt.
-Tested on Debian, Ubuntu, CentOS, Fedora (not on RHEL).
-
-On Debian-like systems, requires "update-notifier-common" package.
-On Redhat-like systems, requires "yum-plugin-security" (on Fedora11/CentOS6),
-or "yum-security" (on older Redhat).
-
-On error an unusually high positive number ([60001,60100]) will be used.
+ * Shows the number of (security) updates on Linux systems with yum or apt.
+ * Tested on Debian, Ubuntu, CentOS, Fedora (not on RHEL).
+     * On Debian-like systems, requires "update-notifier-common" package.
+     * On Redhat-like systems, requires appropriate package
+         * "yum-plugin-security" (on Fedora11/CentOS6),
+         * "yum-security" (on older Redhat).
+ * On error an unusually high positive number ([60001,60100]) will be used.
+     * Assumes the system does not have actual 60000 updates!
 
 ## I like Zabbix :-)
+
+This local variant would be more useful with Zabbix Agent than manual execution.
 
 Try UserParameter like the following:
 
@@ -94,14 +102,17 @@ Try UserParameter like the following:
     UserParameter=mowa.secupdates,/var/lib/zabbix/check_update_local.py -s -q
     UserParameter=mowa.reboots,/var/lib/zabbix/check_update_local.py -r -q
 
-Reboot the agent and check if Zabbix Server side can use these
-additional parameters.
+Reboot the agent and double-check if Zabbix Server can rely on
+those additional parameters.
+For testing, zabbix_get command will be your friend.
 
-zabbix_get command will be your friend. Use it on the server side.
-
-    (on server side)
+    (Run this on "server" side, not on "agent" side that has the script)
     $ zabbix_get -s yourhost.exampl.com -k mowa.reboots
     1
+
+# Pull-Request?
+
+Welcome :-)
 
 # License
 
