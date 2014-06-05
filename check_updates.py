@@ -206,7 +206,10 @@ def check_reboot_required(is_debian):
 def upgrade_debian():
     # Show updates by default.
     quiet = env.args.quiet
-    sudo('apt-get -y dist-upgrade', warn_only=True, quiet=quiet)
+    if env.args.dist_upgrade:
+        sudo('apt-get -y dist-upgrade', warn_only=True, quiet=quiet)
+    else:
+        sudo('apt-get -y upgrade', warn_only=True, quiet=quiet)
 
 
 def upgrade_centos():
@@ -270,61 +273,53 @@ def do_sanity_check():
 def main():
     parser = argparse.ArgumentParser(
         description=u'Checks if remote hosts need update or not.')
-    parser.add_argument('--refresh',
-                        help=(u'Run apt-get update on Debian/Ubuntu.'),
-                        action='store_true')
-    parser.add_argument('--sanity-check',
-                        help=(u'Executes sanity check toward each host'
-                              u' serially (not in parallel).'
-                              u' If some hosts show prompt in the check phase,'
-                              u' this command will abort itself immediately.'
-                              u' Might be useful for "debugging" new hosts.'),
-                        action='store_true')
-    parser.add_argument('-s', '--serial',
-                        help=u'Executes check in serial manner',
-                        action='store_true')
-    parser.add_argument('--ask-upgrade',
+    parser.add_argument('hosts', metavar='HOST', type=str, nargs='*',
+                        help=(u'Host names or host groups. If not specified,'
+                              u' default hosts configuration will be used.'
+                              u' This may allow special command "all" "list",'
+                              u' "groups" (= "list_groups").'))
+    parser.add_argument('-s', '--serial', action='store_true',
+                        help=u'Executes check in serial manner')
+    parser.add_argument('-q', '--quiet', action='store_true',
+                        help=u'Suppress unnecessary output.')
+    parser.add_argument('-n', '--nonregistered', action='store_true',
+                        help=u'Allow host names that are not registered')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help=u'Show verbose outputs, including Fabric ones.')
+    parser.add_argument('--ask-upgrade', action='store_true',
                         help=(u'Asks if upgrade should be done when'
                               u' appropriate.'
                               u' Only effective when --serial (-s) option'
-                              u' is set'),
-                        action='store_true')
-    parser.add_argument('--auto-upgrade',
-                        help=(u'Request hosts actually upgrade itself'
-                              u' when necessary.'
-                              u' Note that this will execute "dist-upgrade"'
-                              u' on debian(-like) OSes, not "upgrade.'),
-                        action='store_true')
-    parser.add_argument('--auto-upgrade-restart',
-                        help=(u'Request hosts actually upgrade itself'
+                              u' is set'))
+    parser.add_argument('--auto-upgrade', action='store_true',
+                        help=(u'Requests hosts to upgrade itself'
+                              u' when necessary.'))
+    parser.add_argument('--dist-upgrade', action='store_true',
+                        help=(u'Use "dist-upgrade" instead of "upgrade".'
+                              u' Only effective with debian-like systems.'
+                              u' Meaningless on redhat-like systems.'))
+    parser.add_argument('--auto-upgrade-restart', action='store_true',
+                        help=(u'Requests hosts to upgrade itself'
                               u' and restart when upgrade is finished.'
                               u' With this option restart'
                               u' will be executed regardless of necessity'
                               u' (with/without "Reboot-Required" status).'
                               u' This will execute "dist-upgrade"'
-                              u' on debian(-like) OSes, not "upgrade.'),
-                        action='store_true')
-    parser.add_argument('hosts', metavar='HOST',
-                        type=str,
-                        nargs='*',
-                        help=(u'Host names or host groups. If not specified,'
-                              u' default hosts configuration will be used.'
-                              u' This may allow "all" "list",'
-                              u' "groups" (= "list_groups").'))
-    parser.add_argument('-q', '--quiet',
-                        action='store_true',
-                        help=u'Suppress unnecessary output.')
-    parser.add_argument('--show-packages',
-                        action='store_true',
+                              u' on debian(-like) OSes, not "upgrade.'))
+    parser.add_argument('--refresh', action='store_true',
+                        help=(u'Run "apt-get update" on debian-like systems.'))
+    parser.add_argument('--show-packages', action='store_true',
                         help=(u'This will show names of packages'
                               u' to be upgraded.'))
-    parser.add_argument('-n', '--allow-nonregistered',
-                        action='store_true',
-                        help=u'Allow host names that are not registered')
-    parser.add_argument('-v', '--verbose',
-                        action='store_true',
-                        help=u'Show verbose outputs, including Fabric ones.')
-    args = parser.parse_args()        
+    parser.add_argument('--sanity-check', action='store_true',
+                        help=(u'First executes sanity check toward each host'
+                              u' serially (not in parallel).'
+                              u' If some hosts show prompt in the check phase,'
+                              u' this command will abort itself immediately.'
+                              u' Might be useful for "debugging" new hosts.'
+                              u' If you are considering --serial option,'
+                              u' This "check" would be meaningless.'))
+    args = parser.parse_args()
     output_groups = ()
     if args.verbose:
         output_groups = ()
@@ -419,7 +414,6 @@ def main():
                 abort('--ask-upgrade is useless on parallel mode.')
             if args.auto_upgrade:
                 abort('--ask-upgrade is useless when auto-upgrade is enabled.')
-
 
         # Remember our args.
         env.args = args            

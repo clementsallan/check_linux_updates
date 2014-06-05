@@ -1,40 +1,48 @@
 # check_updates.py
 ## What is this?
 
- * Checks updates on remote Linux machines, showing as a list.
- * Has an option for upgrading/rebooting each machine.
+ * Checks updates on remote Linux machines via ssh, and shows a list of
+   package updates.
  * Can parallelize or serialize the execution.
- * Supports Debian-like and Redhat-like systems.
- * Tested with Python 2.7 + Fabric 1.8.3 + Paramiko 1.11.0
+     * Requires appropriate public keys when you want parallel check.
+     * Password authentication works only with serial check (--serial, -s).
+ * Has an option for upgrading/rebooting each machine on demand.
+     * Password-less sudo will be required on most of parallel checks.
+     * With serial check you can enter password.
+ * Supports both debian-like and redhat-like systems.
+     * Sorry the original author does not manage other Unix/Linux systems.
+     * Please don't expect W*ndows support.
  * "Host-Grouping" capability exists for convenience.
      * Useful for batch manipulation for a specific "region".
- * For local check only, try ``check_local_updat.py`` instead.
+ * Developed with Python 2.7 + Fabric 1.8.3 + Paramiko 1.11.0 (Debian wheezy)
+     * Tested with Ubuntu 12.04LTS, 14.04LTS, Debian sid, CentOS 6, Fedora 20
+ * For local execution only, check ``check_local_updat.py`` instead.
 
-## More details 
+## More details
 
- * Uses Python Fabric via API.
+ * Uses Python Fabric API.
      * "fab" command (Fabric's command line interface) is not used.
- * Private key handling is very immature at this point.
- * No capability to select authentication scheme at this point.
+ * Private/public key handling and sudo handling is very immature at this point.
+ * There is no capability to select authentication scheme at this point.
      * You will need to enter a password for each host
-       when password-less sudo is not configured.
- * Not tested with venv or any other nice mechanism available on Python.
-
+       when there's no private-key, password-less sudo is not configured, etc.
 
 ## Preparation
 
+ * Python 2.7 must be ready on executing environment.
+     * CentOS 6 seems NOT ready.
  * Needs Python/Fabric on your client machine (that runs this command)
-     * pip will be your friend
- * Needs "update-notifier-common" is needed on target Debian machines.
+     * "pip" command will be your friend.
+ * Needs "update-notifier-common" is needed on target debian-like systems.
      * Already installed on some Ubuntu machines.
- * Prepare hosts.py that contains get_hosts() and get_host_groups() methods
+ * Prepare "hosts.py" that contains get_hosts() and get_host_groups() methods
    (See below)
-     * get_hosts() should return all the hosts you manage.
+     * get_hosts() should return all hosts you manage.
      * get_host_groups() should return a dictionary mapping group names to
        each host. All hosts here should be in get_hosts().
      * Multiple groups can contain same host names.
 
-## Example
+### Example hosts.py
 
     (hosts.py)
     
@@ -57,7 +65,7 @@
     def get_host_groups():
         return _HOST_GROUPS
 
-Here's sample output:
+## Example output
 
     > check-linux-updates.py
     example.com       :   6(6) (REBOOT-REQUIERD)
@@ -83,6 +91,7 @@ Here's sample output:
 
 # check_update_local.py
 
+ * Local check version. No ssh. No auto-upgrade with sudo.
  * Shows the number of (security) updates on Linux systems with yum or apt.
  * On error an unusually high positive number ([60001,60100]) will be used.
      * Assumes the system does not have actual 60000 updates!
@@ -99,10 +108,22 @@ Here's sample output:
          * ``pip2.6 install argparse``
          * Python 2.6 is barely supported.. :-P
 
+# Example output
+
+Example shows the system has 2 updates (including 1 security update),
+requiring system reboot.
+
+    $ check_update_local.py
+    2
+    $ check_update_local.py -s
+    1
+    $ check_update_local.py -r
+    1
 
 ## I like Zabbix :-)
 
-This local variant would be more useful with Zabbix Agent than manual execution.
+This local variant would be more useful with Zabbix Agent
+than just the user's manual execution.
 
 Try UserParameter like the following:
 
@@ -110,17 +131,13 @@ Try UserParameter like the following:
     UserParameter=mowa.secupdates,/var/lib/zabbix/check_update_local.py -s -q
     UserParameter=mowa.reboots,/var/lib/zabbix/check_update_local.py -r -q
 
-Reboot the agent and double-check if Zabbix Server can rely on
+Reboot the agent and double-check if Zabbix Server is able to expect
 those additional parameters.
 For testing, zabbix_get command will be your friend.
 
     (Run this on "server" side, not on "agent" side that has the script)
     $ zabbix_get -s yourhost.exampl.com -k mowa.reboots
     1
-
-# Pull-Request?
-
-Welcome :-)
 
 # License
 
