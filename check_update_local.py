@@ -4,18 +4,14 @@
 '''
 check_update_local.py
 
-This tool checks available (security) updates on Linux systems with yum or apt,
-showing the number of updates via stdout.
-Has an ability to check if reboot is required or not (try -r option).
+Shows the number of (security) updates on Linux systems with yum or apt.
 Tested on Debian, Ubuntu, CentOS, Fedora (not on RHEL).
 
 On Debian-like systems, requires "update-notifier-common" package.
 On Redhat-like systems, requires "yum-plugin-security" (on Fedora11/CentOS6),
 or "yum-security" (on older Redhat).
 
-On error this tool shows an unusually high number, to let Zabbix Agent
-handle the situation.
-The number will be more than 60000 (Strictly, [60001,60100]).
+On error an unusually high positive number ([60001,60100]) will be used.
 
 Copyright: Daisuke Miyakawa (d.miyakawa (a-t) gmail d-o-t com)
 Licensed under Apache 2 License.
