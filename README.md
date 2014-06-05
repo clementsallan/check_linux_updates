@@ -75,37 +75,36 @@ Here's sample output:
      "mowa-net", rebooting them if needed)
     ..
 
-# check_debian_update_local.py
+# check_update_local.py
 
-Locally runs ``/usr/lib/update-notifier/apt-check`` command and 
-shows (via stdout) the number of updates on Debian/Ubuntu.
-The apt-check command itself is not part of this project but
-part of update-notifier-common package.
-You may need to prepare it beforehand.
+Shows the number of (security) updates on Linux systems with yum or apt.
+Tested on Debian, Ubuntu, CentOS, Fedora (not on RHEL).
 
-This tool shows an unusually high number on error.
-It is because Zabbix Agent won't handle negative number and
-there's no other appropriate way to let Zabbix Server know the situation.
-Typically more than 60000 will be shown.
+On Debian-like systems, requires "update-notifier-common" package.
+On Redhat-like systems, requires "yum-plugin-security" (on Fedora11/CentOS6),
+or "yum-security" (on older Redhat).
 
-For using with Zabbix, try UserParameter like the following:
+On error an unusually high positive number ([60001,60100]) will be used.
 
-    UserParameter=mowa.updates,/var/lib/zabbix/check_debian_update_local.py -q
-    UserParameter=mowa.secupdates,/var/lib/zabbix/check_debian_update_local.py -s -q
-    UserParameter=mowa.reboots,/var/lib/zabbix/check_debian_update_local.py -r -q
+## I like Zabbix :-)
+
+Try UserParameter like the following:
+
+    UserParameter=mowa.updates,/var/lib/zabbix/check_update_local.py -q
+    UserParameter=mowa.secupdates,/var/lib/zabbix/check_update_local.py -s -q
+    UserParameter=mowa.reboots,/var/lib/zabbix/check_update_local.py -r -q
 
 Reboot the agent and check if Zabbix Server side can use these
-additional parameters. zabbix_get command will be your friend.
+additional parameters.
+
+zabbix_get command will be your friend. Use it on the server side.
 
     (on server side)
     $ zabbix_get -s yourhost.exampl.com -k mowa.reboots
     1
 
-Note that apt-check command and this Python script may be too slow for
-your servers. Please be careful.
-
-
 # License
 
-Apache2
+Copyright: Daisuke Miyakawa (d.miyakawa (a-t) gmail d-o-t com)
+Licensed under Apache 2 License.
 
