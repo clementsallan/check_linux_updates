@@ -64,7 +64,11 @@ def check_reboot_required_debian():
     return exists('/var/run/reboot-required')
 
 
-def check_updates_debian():
+def check_updates_debian(apt_command):
+    '''
+    Returns (updates, sec_updates, reboot_required) when successful.
+    Returns None on failure.
+    '''
     quiet = not env.args.verbose
     if env.args.refresh:
         result = sudo('apt-get update', warn_only=True, quiet=quiet)
@@ -89,7 +93,8 @@ def check_updates_debian():
     reboot_required = check_reboot_required_debian()
     if updates or sec_updates or reboot_required or env.args.verbose:
         if env.args.show_packages:
-            result = sudo('apt-get -s upgrade', warn_only=True, quiet=quiet)
+            result = sudo('{} -s upgrade'.format(apt_command),
+                          warn_only=True, quiet=quiet)
             if result.succeeded:
                 do_check_next = False
                 packages = None
@@ -132,32 +137,29 @@ def check_reboot_required_centos():
         reboot_required = None
     return reboot_required
 
+def run_yum_check_update(security=False):
+    '''
+    Returns (updates, packages).
+    Note packages will be useful only when env.args.show_packages is set.
+    '''
+    quiet = env.args.quiet
+    options = []
+    if security: options.append('--security')
+    if quiet:    options.append('--quiet')
+    cmd = 'yum {} check-update'.format(' '.join(options))
 
-def check_updates_centos():
-    quiet = not env.args.verbose
-    # CentOS
-    result = run('command -v yum >& /dev/null', quiet=quiet)
-    if result.failed:
-        error('{}: yum does not exist'.format(env.host))
-        return None
-    if quiet:
-        cmd = 'yum --quiet check-update'
-    else:
-        cmd = 'yum check-update'
-
-    # warn_only is not used because yum returns 100 even on successful cases,
-    # while warn_only treats it as error case, showing "Warning".
+    # yum returns 0 when there's no update and returns 100 there are updates.
+    # On the other hand Fabric treats the return code 100 as "error".
+    # To suppress meaningless warning, refrain using "warn_only" flag here.
     result = run(cmd, quiet=True)
 
-    # yum returns 0 when there's no update and returns 100
-    # when there are update(s).
-    # Will return 1 on error, but be a bit more pessimistic here.
+    # yum returns 1 on error.
+    # Here, treat non-0 and non-100 as an error just in case.
     if result.return_code != 0 and result.return_code != 100:
         error('yum failed with return_code "{}"'.format(result.return_code))
         return None
 
     output = str(result.stdout)
-
     update_lines = filter(lambda x: x.rstrip().endswith('updates'),
                           output.split('\n'))
     # Count the number of lines that contain "update" at the end.
@@ -171,10 +173,15 @@ def check_updates_centos():
                             .rstrip('.noarch'))
     else:
         packages = None
+    return (updates, packages)
 
-    # It seems there's no way whether each is for security or not..
-    sec_updates = '?'
-
+def check_updates_centos():
+    '''
+    Returns (updates, sec_updates, reboot_required) when successful.
+    Returns None on failure.
+    '''
+    (updates, packages) = run_yum_check_update(False)
+    (sec_updates, _) = run_yum_check_update(True)
     reboot_required = check_reboot_required_centos()
 
     # Note: reboot_required == None means 'Unknown',
@@ -187,29 +194,15 @@ def check_updates_centos():
     return (updates, 0, reboot_required)
 
 
-def check_updates(is_debian):
-    if is_debian:
-        result = check_updates_debian()
-    else:
-        result = check_updates_centos()
-    return result
-
-
-def check_reboot_required(is_debian):
-    if is_debian:
-        reboot_required = check_reboot_required_debian()
-    else:
-        reboot_required = check_reboot_required_centos()
-    return reboot_required
-
-
-def upgrade_debian():
+def upgrade_debian(apt_command):
     # Show updates by default.
     quiet = env.args.quiet
     if env.args.dist_upgrade:
-        sudo('apt-get -y dist-upgrade', warn_only=True, quiet=quiet)
+        sudo('{} -y dist-upgrade'.format(apt_command),
+             warn_only=True, quiet=quiet)
     else:
-        sudo('apt-get -y upgrade', warn_only=True, quiet=quiet)
+        sudo('{} -y upgrade'.format(apt_command),
+             warn_only=True, quiet=quiet)
 
 
 def upgrade_centos():
@@ -224,9 +217,35 @@ def do_check_updates():
         warn('Host {} on port {} is down.'.format(env.host, env.port))
         return
 
-    result = run('command -v apt-get >& /dev/null', quiet=True)
-    is_debian = result.succeeded
-    result = check_updates(is_debian)
+    # Contains apt_get/aptitude command. None on CentOS
+    apt_command = None
+
+    if env.args.prefer_aptitude:
+        result_aptitude = run('command -v aptitude >& /dev/null', quiet=True)
+        result_aptget = run('command -v apt-get >& /dev/null', quiet=True)
+        if result_aptitude.succeeded:
+            apt_command = 'aptitude'
+        elif result_aptget.succeeded:
+            warn(('Host {} does not have aptitude command'
+                  ' while aptitude is preferred.'
+                  ' Will use apt-get instead.')
+                 .format(env.host))
+            apt_command = 'apt-get'
+    else:
+        result_aptget = run('command -v apt-get >& /dev/null', quiet=True)
+        if result_aptget.succeeded:
+            apt_command = 'apt-get'
+    if not apt_command:
+        result = run('command -v yum >& /dev/null', quiet=quiet)
+        if result.failed:
+            error('Host {} does not have apt or yum. Exitting.'
+                  .format(env.host))
+            return
+
+    if apt_command:
+        result = check_updates_debian(apt_command)
+    else:
+        result = check_updates_centos()
 
     if result:
         upgrade_done = False
@@ -241,15 +260,18 @@ def do_check_updates():
 
             if do_upgrade:
                 puts('Upgrading {}'.format(env.host))
-                if is_debian:
-                    upgrade_debian()
+                if apt:
+                    upgrade_debian(apt)
                 else:
                     upgrade_centos()
-                # Check reboot status again
-                reboot_required = check_reboot_required(is_debian)
                 upgrade_done = True
 
-        if (upgrade_done or reboot_required):
+                if apt_command:
+                    reboot_required = check_reboot_required_debian(apt_command)
+                else:
+                    reboot_required = check_reboot_required_centos()
+
+        if upgrade_done or reboot_required:
             do_reboot = False
             if env.args.auto_upgrade_restart:
                 do_reboot = True
@@ -319,6 +341,10 @@ def main():
                               u' Might be useful for "debugging" new hosts.'
                               u' If you are considering --serial option,'
                               u' This "check" would be meaningless.'))
+    parser.add_argument('--prefer-aptitude', action='store_true',
+                        help=(u'Try using "aptitude" instead of "apt-get"'
+                              u' on debian-like systems.'
+                              u' If not available, use "apt-get" anyway.'))
     args = parser.parse_args()
     output_groups = ()
     if args.verbose:
@@ -417,7 +443,7 @@ def main():
                 abort('--ask-upgrade is useless when auto-upgrade is enabled.')
 
         # Remember our args.
-        env.args = args            
+        env.args = args
         if args.sanity_check:
             puts('Start sanity check')
             execute(do_sanity_check, hosts=hosts)
