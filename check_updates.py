@@ -20,6 +20,8 @@ from fabric.utils import abort,error,puts,warn
 import paramiko
 import socket
 
+import fabwrap
+
 # Prepare those function by yourself.
 from hosts import get_hosts, get_host_groups
 
@@ -355,6 +357,8 @@ def main():
     else:
         output_groups = ('running', 'status')
 
+    fabwrap.setup()    
+
     with hide(*output_groups), shell_env(LANG='C'):
         if ((args.auto_upgrade or args.auto_upgrade_restart)
             and not args.hosts):
@@ -409,7 +413,7 @@ def main():
                         hosts.append(filtered[0])
                     elif len(filtered) > 1:
                         abort('Multiple candidates for "{}"'.format(host))
-                    elif args.allow_nonregistered:
+                    elif args.nonregistered:
                         hosts.append(host)
                     else:
                         abort('No idea how to handle "{}"'.format(host))
