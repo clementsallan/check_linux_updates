@@ -59,8 +59,8 @@ class CustomHostConnectionCache(HostConnectionCache):
         super(CustomHostConnectionCache, self).__init__()
         config_file = config_file or os.path.expanduser("~/.ssh/config")
         self.ssh_config = paramiko.SSHConfig()
-        if os.path.exists(user_config_file):
-            with open(user_config_file) as f:
+        if os.path.exists(config_file):
+            with open(config_file) as f:
                 self.ssh_config.parse(f)
 
     def connect(self, key, logger=None):
