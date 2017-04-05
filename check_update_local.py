@@ -3,16 +3,12 @@
 
 '''
 check_update_local.py
-
 Shows the number of (security) updates on Linux systems with yum or apt.
 Tested on Debian, Ubuntu, CentOS, Fedora (not on RHEL).
-
 On Debian-like systems, requires "update-notifier-common" package.
 On Redhat-like systems, requires "yum-plugin-security" (on Fedora11/CentOS6),
 or "yum-security" (on older Redhat).
-
 On error an unusually high positive number ([60001,60100]) will be used.
-
 Copyright: Daisuke Miyakawa (d.miyakawa (a-t) gmail d-o-t com)
 Licensed under Apache 2 License.
 '''
@@ -190,9 +186,9 @@ class RedhatTester(TesterBase):
 
     def get_update_count(self, is_security_updates=False):
         if is_security_updates:
-            cmd = 'yum --security check-update'
+            cmd = 'yum --security -q check-update'
         else:
-            cmd = 'yum check-update'
+            cmd = 'yum -q check-update'
         p = Popen(shlex.split(cmd), stderr=PIPE, stdout=PIPE)
         p.wait()
 
@@ -204,7 +200,8 @@ class RedhatTester(TesterBase):
                                .format(cmd, p.returncode,
                                        p.stderr.read().rstrip()))
         output = p.stdout.read()
-        update_lines = filter(lambda x: x.rstrip().endswith('updates'),
+        sources = ( "releases", "updates", "server-7", "ol7_UEKR4", "ol7_latest", "amzn_main" )
+        update_lines = filter(lambda x: x.rstrip().endswith(sources),
                               output.split('\n'))
         return len(update_lines)
 
